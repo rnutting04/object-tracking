@@ -1,0 +1,1 @@
+Alrogithm loses track of the object if the object is too far from the center and too far away from the camera.
