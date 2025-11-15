@@ -3,13 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import csv
 
-VIDEO_PATH = "data/videos/test9.mp4"
-REF_PATHS  = [
-    "data/ref/ref10_near.jpg",
-    "data/ref/ref10_mid.jpg",
-    "data/ref/ref10_far.jpg",
-]
-H_INV_PATH = "data/calibration/H_inv.npy"
 
 
 def load_h_inv(path):
@@ -36,8 +29,9 @@ def world_to_map(X, Y, img_size=(600, 600), margin=50):
     return mx, my
 
 
-def main():
-    H_inv = load_h_inv(H_INV_PATH)
+def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, csv_out: str, plot_out: str):
+
+    H_inv = load_h_inv(h_inv_path)
 
     # SIFT
     sift = cv2.SIFT_create(
@@ -49,7 +43,7 @@ def main():
 
     # Load refs
     refs = []
-    for path in REF_PATHS:
+    for path in ref_paths:
         ref_img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
         if ref_img is None:
             print(f"[WARN] Could not load reference image at {path}, skipping.")
@@ -76,7 +70,7 @@ def main():
     search_params = dict(checks=64)
     flann = cv2.FlannBasedMatcher(index_params, search_params)
 
-    cap = cv2.VideoCapture(VIDEO_PATH)
+    cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError("Could not open video source")
 
@@ -228,11 +222,18 @@ def main():
         plt.xlabel("World X")
         plt.ylabel("World Y")
         plt.tight_layout()
-        plt.savefig("trajectory_plot.png", dpi=200)
+        plt.savefig(plot_out, dpi=200)
         print("Saved plot to trajectory_plot.png")
     else:
         print("No trajectory points recorded – nothing to plot.")
 
 
 if __name__ == "__main__":
-    main()
+    VIDEO_PATH = "data/videos/test9.mp4"
+    REF_PATHS  = [
+        "data/ref/ref10_near.jpg",
+        "data/ref/ref10_mid.jpg",
+        "data/ref/ref10_far.jpg",
+    ]
+    H_INV_PATH = "data/calibration/H_inv.npy"
+    process_camera("cam1", VIDEO_PATH, REF_PATHS, H_INV_PATH, "trajectory_run1.csv", "trajectory_plot.png")

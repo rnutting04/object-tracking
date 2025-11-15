@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 VIDEO_PATH = "data/videos/test9.mp4"        # change if needed
-REF_PATH   = "data/ref/ref10.jpg"           # good reference image
+REF_PATH   = "data/ref/ref1.jpg"           # good reference image
 H_INV_PATH = "data/calibration/H_inv.npy"  # from calibration step
 
 
