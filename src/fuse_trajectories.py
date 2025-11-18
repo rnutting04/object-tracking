@@ -18,7 +18,7 @@ def load_csv(path):
     return data
 
 
-def fuse(cam1, cam2, out_csv="fused_trajectory.csv", plot_png="fused_plot.png"):
+def fuse(cam1, cam2, out_csv, plot_png):
     # Collect all frames across both cameras
     all_frames = sorted(set(cam1.keys()) | set(cam2.keys()))
 
@@ -78,7 +78,6 @@ def fuse(cam1, cam2, out_csv="fused_trajectory.csv", plot_png="fused_plot.png"):
 
     plt.figure(figsize=(6, 8))
     plt.plot(xs, ys, "g.", markersize=3)
-    plt.gca().invert_yaxis()  # match your OpenCV world map orientation
     plt.title("Fused Trajectory")
     plt.xlabel("World X")
     plt.ylabel("World Y")
@@ -89,9 +88,9 @@ def fuse(cam1, cam2, out_csv="fused_trajectory.csv", plot_png="fused_plot.png"):
 
 
 if __name__ == "__main__":
-    cam1 = load_csv("output/cam1_run.csv")
-    cam2 = load_csv("output/cam2_run.csv")
+    cam1 = load_csv("trajectory_run1.csv")
+    cam2 = load_csv("trajectory_run2.csv")
 
     fuse(cam1, cam2,
-         out_csv="output/fused_run.csv",
-         plot_png="output/fused_plot.png")
+         out_csv="fused_run.csv",
+         plot_png="fused_plot.png")

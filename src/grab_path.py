@@ -2,6 +2,11 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt 
 import csv
+import os
+import threading
+
+import calibrate_homography
+import fuse_trajectories
 
 
 
@@ -30,6 +35,12 @@ def world_to_map(X, Y, img_size=(600, 600), margin=50):
 
 
 def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, csv_out: str, plot_out: str):
+
+    if not os.path.exists(h_inv_path):
+        print(f"Calibrating homography for {cam_id}...")
+        calibrate_homography.calibrate_now(video_path, h_inv_path)
+    else:
+        print(f"Loading homography for {cam_id} from {h_inv_path}...")
 
     H_inv = load_h_inv(h_inv_path)
 
@@ -81,7 +92,7 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
     map_h, map_w = 600, 600
     map_img = np.zeros((map_h, map_w, 3), dtype=np.uint8)
 
-    LOWE_RATIO    = 0.7
+    LOWE_RATIO    = 0.6
     MIN_INLIERS   = 12      # slightly relaxed
     RANSAC_THRESH = 4.0
 
@@ -91,7 +102,7 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
     smooth_Y = None
 
     frame_idx = 0
-    csv_file = open("trajectory_run1.csv", "w", newline="")
+    csv_file = open(csv_out, "w", newline="")
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(["frame", "X", "Y", "Xs", "Ys", "inliers", "ref_idx"])
     while True:
@@ -165,7 +176,7 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
 
                 # bottom midpoint (feet)
                 pts = projected.reshape(-1, 2)  # tl, tr, br, bl
-                bottom_mid = (pts[2] + pts[3]) / 2.0
+                bottom_mid = (pts[1] + pts[3]) / 2.0
                 cx, cy = float(bottom_mid[0]), float(bottom_mid[1])
 
                 cv2.circle(frame, (int(cx), int(cy)), 4, (0, 0, 255), -1)
@@ -216,7 +227,6 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
 
         plt.figure(figsize=(5, 7))
         plt.scatter(xs, ys, s=5)
-        plt.gca().invert_yaxis()   # match "up is up" like our map
         plt.axis('equal')
         plt.title("World trajectory (smoothed)")
         plt.xlabel("World X")
@@ -229,11 +239,73 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
 
 
 if __name__ == "__main__":
-    VIDEO_PATH = "data/videos/test9.mp4"
+
     REF_PATHS  = [
-        "data/ref/ref10_near.jpg",
-        "data/ref/ref10_mid.jpg",
-        "data/ref/ref10_far.jpg",
+        "data/ref/ref14_1.jpg",
+        "data/ref/ref14_2.jpg",
+        "data/ref/ref14_3.jpg",
+        "data/ref/ref14_4.jpg",
     ]
-    H_INV_PATH = "data/calibration/H_inv.npy"
-    process_camera("cam1", VIDEO_PATH, REF_PATHS, H_INV_PATH, "trajectory_run1.csv", "trajectory_plot.png")
+
+    TEST_CONFIGS = [
+        {
+            "id": "test20_angle1",
+            "ext": "mov",
+        },
+        {
+            "id": "test20_angle2",
+            "ext": "mp4",
+        },
+    ]
+    
+    for config in TEST_CONFIGS:
+        cam_id = config["id"]
+        extension = config["ext"]
+        video_path = f'data/videos/{cam_id}.{extension}'
+        h_inv_path = f'data/calibration/H_{cam_id}.npy'
+        
+        # Output files based on the configuration ID
+        csv_out = f"trajectory_run_{cam_id}.csv"
+        plot_out = f"trajectory_plot_{cam_id}.png"
+        
+        print(f"\n--- Running Camera: {cam_id} ---")
+        
+        process_camera(
+            cam_id, 
+            video_path, 
+            REF_PATHS, 
+            h_inv_path, 
+            csv_out, 
+            plot_out
+        )
+
+    print("\n--- All runs complete ---")
+
+    if TEST_CONFIGS.__sizeof__() > 1:
+        print("Fusing trajectories...")
+        fuse_trajectories.fuse(
+            cam1=fuse_trajectories.load_csv(f"trajectory_run_{TEST_CONFIGS[0]['id']}.csv"),
+            cam2=fuse_trajectories.load_csv(f"trajectory_run_{TEST_CONFIGS[1]['id']}.csv"),
+            out_csv="fused_trajectory.csv",
+            plot_png="fused_plot.png",
+        )   
+
+    # threads = [] 
+
+    # print("Starting threads...")
+
+    # for config in TEST_CONFIGS:
+    #     cam_id = config["id"]
+    #     extension = config["ext"]
+    #     video_path = f'data/videos/{cam_id}.{extension}'
+    #     h_inv_path = f'data/calibration/H_{cam_id}.npy'
+
+    #     csv_out = f"trajectory_run_{cam_id}.csv"
+    #     plot_out = f"trajectory_plot_{cam_id}.png"
+
+    #     thread = threading.Thread(target=process_camera, args=(cam_id, video_path, REF_PATHS, h_inv_path, csv_out, plot_out), name=f'Camera Processor {cam_id}')
+    #     threads.start()
+    #     thread.append(thread)
+    
+    # for thread in threads:
+    #     thread.join()
