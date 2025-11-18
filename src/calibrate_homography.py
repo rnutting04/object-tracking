@@ -2,8 +2,8 @@
 import cv2
 import numpy as np
 
-VIDEO_PATH = "data/videos/test22_angle1.mov"   # change if needed
-H_INV_OUT = "data/calibration/H_inv_2.npy"
+VIDEO_PATH = "data/videos/test23_angle1.mov"   # change if needed
+H_INV_OUT = "data/calibration/H_test23_angle1.npy"
 
 # world coordinates of the four floor markers (meters, for example)
 # order: P0 -> P1 -> P2 -> P3 in a rectangle order

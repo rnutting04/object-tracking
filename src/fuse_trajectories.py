@@ -88,8 +88,8 @@ def fuse(cam1, cam2, out_csv, plot_png):
 
 
 if __name__ == "__main__":
-    cam1 = load_csv("trajectory_run1.csv")
-    cam2 = load_csv("trajectory_run2.csv")
+    cam1 = load_csv("trajectory_run_test30_angle1.csv")
+    cam2 = load_csv("trajectory_run_test30_angle2.csv")
 
     fuse(cam1, cam2,
          out_csv="fused_run.csv",

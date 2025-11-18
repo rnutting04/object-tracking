@@ -47,7 +47,7 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
     # SIFT
     sift = cv2.SIFT_create(
         nfeatures=3000,
-        contrastThreshold=0.04,
+        contrastThreshold=0.06,
         edgeThreshold=10,
         sigma=1.6,
     )
@@ -93,8 +93,8 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
     map_img = np.zeros((map_h, map_w, 3), dtype=np.uint8)
 
     LOWE_RATIO    = 0.6
-    MIN_INLIERS   = 12      # slightly relaxed
-    RANSAC_THRESH = 4.0
+    MIN_INLIERS   = 15      # slightly relaxed
+    RANSAC_THRESH = 3.0
 
     # Smoothing state
     SMOOTH_ALPHA = 0.2      # 0=no smoothing, 1=heavy smoothing
@@ -152,6 +152,7 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
                             "H": H,
                             "mask": mask,
                             "inliers": inliers,
+                            "matches": good,
                         }
 
             if best_candidate is not None:
@@ -159,6 +160,10 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
                 H = best_candidate["H"]
                 inliers = best_candidate["inliers"]
                 ref_idx = best_candidate["ref_idx"]
+
+                good_matches = best_candidate["matches"]
+                mask = best_candidate["mask"]
+                kp_ref = ref_data["kp"]
 
                 cv2.putText(frame, f"Inliers: {inliers} (ref {ref_idx})", (10, 60),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
@@ -179,14 +184,58 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
                 bottom_mid = (pts[1] + pts[3]) / 2.0
                 cx, cy = float(bottom_mid[0]), float(bottom_mid[1])
 
-                cv2.circle(frame, (int(cx), int(cy)), 4, (0, 0, 255), -1)
+                COLOR_POINT = (0, 0, 255)
+                cv2.circle(frame, (int(cx), int(cy)), 4, COLOR_POINT, -1)
+
+                """
+                TESTING CODE TO PLOT REFERENCE POINT PROJECTION
+                """
+
+                ref_vis = cv2.cvtColor(ref_data["img"], cv2.COLOR_GRAY2BGR)
+
+                matches_mask = mask.ravel().tolist()    
+
+                for i, (m, is_inlier) in enumerate(zip(good_matches, matches_mask)):
+                    if is_inlier:
+                        # 1. Draw on Reference Image (Existing logic)
+                        ref_pt_idx = m.queryIdx
+                        (rx_pt, ry_pt) = kp_ref[ref_pt_idx].pt
+                        cv2.circle(ref_vis, (int(rx_pt), int(ry_pt)), 3, (0, 255, 0), -1)
+
+                        # 2. Draw on Video Frame (NEW logic)
+                        frame_pt_idx = m.trainIdx
+                        (fx, fy) = kp_frame[frame_pt_idx].pt
+                        # Drawing Blue dots (255, 0, 0) to distinguish from the Red foot point
+                        cv2.circle(frame, (int(fx), int(fy)), 3, (255, 0, 0), -1)
+
+                try:
+                    H_inv_ref = np.linalg.inv(H)
+                    
+                    pt_frame_h = np.array([cx, cy, 1.0], dtype=np.float32)
+                    pt_ref_h = H_inv_ref @ pt_frame_h
+                    
+                    # Check for division by zero in perspective division
+                    if abs(pt_ref_h[2]) > 1e-6:
+                        pt_ref_h /= pt_ref_h[2]
+                        rx, ry = float(pt_ref_h[0]), float(pt_ref_h[1])
+                        cv2.circle(ref_vis, (int(rx), int(ry)), 6, COLOR_POINT, -1)
+                except np.linalg.LinAlgError:
+                    print(f"[WARN] Frame {frame_idx}: Singular matrix encountered. Skipping reference projection.")
+
+                ref_vis = cv2.resize(ref_vis, (600, 400))
+
+                cv2.imshow("Current Reference Image (Point Projected)", ref_vis)
+
+                """
+                END TESTING CODE
+                """
 
                 # World coords (raw)
                 X, Y = image_to_world(cx, cy, H_inv)
                 trajectory_raw.append((X, Y))
 
                 # ---- smoothing ----
-                if smooth_X is None:
+                if smooth_X is None:    
                     smooth_X, smooth_Y = X, Y
                 else:
                     smooth_X = (1.0 - SMOOTH_ALPHA) * smooth_X + SMOOTH_ALPHA * X
@@ -202,9 +251,13 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
                                       margin=50)
                 cv2.circle(map_img, (mx, my), 2, (0, 0, 255), -1)
 
+                # match_img = cv2.drawMatches(ref_data["img"], ref_data["kp"], frame, kp_frame, good_matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+                # match_img = cv2.resize(match_img, (1200, 600))
+                # cv2.imshow("Matches", match_img)
+
             else:
                 cv2.putText(frame, "No ref passed inlier threshold", (10, 60),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)  
 
         cv2.putText(frame, f"Frame: {frame_idx}", (10, 25),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -245,19 +298,40 @@ if __name__ == "__main__":
         "data/ref/ref14_2.jpg",
         "data/ref/ref14_3.jpg",
         "data/ref/ref14_4.jpg",
+        "data/ref/ref14_5_blurry.png",
     ]
 
     TEST_CONFIGS = [
         {
-            "id": "test20_angle1",
+            "id": "test30_angle1",
             "ext": "mov",
         },
         {
-            "id": "test20_angle2",
-            "ext": "mp4",
+            "id": "test30_angle2",
+            "ext": "mov",
         },
     ]
+
+    # threads = [] 
     
+    # print("Starting threads...")
+
+    # for config in TEST_CONFIGS:
+    #     cam_id = config["id"]
+    #     extension = config["ext"]
+    #     video_path = f'data/videos/{cam_id}.{extension}'
+    #     h_inv_path = f'data/calibration/H_{cam_id}.npy'
+
+    #     csv_out = f"trajectory_run_{cam_id}.csv"
+    #     plot_out = f"trajectory_plot_{cam_id}.png"
+
+    #     thread = threading.Thread(target=process_camera, args=(cam_id, video_path, REF_PATHS, h_inv_path, csv_out, plot_out), name=f'Camera Processor {cam_id}')
+    #     thread.start()
+    #     threads.append(thread)
+    
+    # for thread in threads:
+    #     thread.join()
+
     for config in TEST_CONFIGS:
         cam_id = config["id"]
         extension = config["ext"]
@@ -281,31 +355,11 @@ if __name__ == "__main__":
 
     print("\n--- All runs complete ---")
 
-    if TEST_CONFIGS.__sizeof__() > 1:
-        print("Fusing trajectories...")
-        fuse_trajectories.fuse(
-            cam1=fuse_trajectories.load_csv(f"trajectory_run_{TEST_CONFIGS[0]['id']}.csv"),
-            cam2=fuse_trajectories.load_csv(f"trajectory_run_{TEST_CONFIGS[1]['id']}.csv"),
-            out_csv="fused_trajectory.csv",
-            plot_png="fused_plot.png",
-        )   
-
-    # threads = [] 
-
-    # print("Starting threads...")
-
-    # for config in TEST_CONFIGS:
-    #     cam_id = config["id"]
-    #     extension = config["ext"]
-    #     video_path = f'data/videos/{cam_id}.{extension}'
-    #     h_inv_path = f'data/calibration/H_{cam_id}.npy'
-
-    #     csv_out = f"trajectory_run_{cam_id}.csv"
-    #     plot_out = f"trajectory_plot_{cam_id}.png"
-
-    #     thread = threading.Thread(target=process_camera, args=(cam_id, video_path, REF_PATHS, h_inv_path, csv_out, plot_out), name=f'Camera Processor {cam_id}')
-    #     threads.start()
-    #     thread.append(thread)
-    
-    # for thread in threads:
-    #     thread.join()
+    # if TEST_CONFIGS.__sizeof__() > 1:
+    #     print("Fusing trajectories...")
+    #     fuse_trajectories.fuse(
+    #         cam1=fuse_trajectories.load_csv(f"trajectory_run_{TEST_CONFIGS[0]['id']}.csv"),
+    #         cam2=fuse_trajectories.load_csv(f"trajectory_run_{TEST_CONFIGS[1]['id']}.csv"),
+    #         out_csv=f"fused_trajectory_{TEST_CONFIGS[0]['id']}_{TEST_CONFIGS[1]['id']}.csv",
+    #         plot_png=f"fused_plot_{TEST_CONFIGS[0]['id']}_{TEST_CONFIGS[1]['id']}.png"
+    #     )
