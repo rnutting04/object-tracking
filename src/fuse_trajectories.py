@@ -1,5 +1,6 @@
 import csv
 import matplotlib.pyplot as plt
+import numpy as np
 
 def load_csv(path):
     """Return dict: frame -> {X, Y, Xs, Ys, inliers}"""
@@ -17,8 +18,66 @@ def load_csv(path):
             }
     return data
 
+def calculate_offset1(cam1, cam2):
+    """
+    Calculates the (x, y) translation required to align cam2 to cam1
+    based on the average difference of overlapping frames.
+    """
+    # Find frames present in both datasets
+    common_frames = set(cam1.keys()) & set(cam2.keys())
+    
+    if not common_frames:
+        print("[WARN] No overlapping frames found between cameras. Returning (0,0) offset.")
+        return (0, 0)
 
-def fuse(cam1, cam2, out_csv, plot_png):
+    diff_x = []
+    diff_y = []
+
+    print(f"Found {len(common_frames)} overlapping frames for alignment.")
+
+    for f in common_frames:
+        # We compare the SMOOTHED coordinates (Xs, Ys)
+        x1 = cam1[f]["Xs"]
+        y1 = cam1[f]["Ys"]
+        
+        x2 = cam2[f]["Xs"]
+        y2 = cam2[f]["Ys"]
+
+        # Calculate how far Cam2 is from Cam1
+        diff_x.append(x1 - x2)
+        diff_y.append(y1 - y2)
+
+    # The offset is the average difference
+    offset_x = np.mean(diff_x)
+    offset_y = np.mean(diff_y)
+
+    return (offset_x, offset_y)
+
+def calculate_offset2(cam1, cam2):
+    if not cam1 or not cam2:
+        print ("No data to calculate offset")
+        return (0, 0)
+    
+    cam1_frames = sorted(cam1.keys())
+    last_frame_a = cam1_frames[-1]
+
+    if last_frame_a not in cam2:
+        print ("No data for last frame in cam2")
+        return (0, 0)
+    
+    val_x = cam1[last_frame_a]["Xs"]
+    val_y = cam2[last_frame_a]["Ys"]
+
+    calc_x = 1.0 - val_x
+    calc_y = 1.0 - val_y
+
+    offset_x = calc_x
+    offset_y = -calc_y
+
+    return (offset_x, offset_y)
+
+
+def fuse(cam1, cam2, out_csv, plot_png, cam1_offset = (0, 0), cam2_offset = (0, 0)):
     # Collect all frames across both cameras
     all_frames = sorted(set(cam1.keys()) | set(cam2.keys()))
 
@@ -30,17 +89,24 @@ def fuse(cam1, cam2, out_csv, plot_png):
         c1 = cam1.get(frame)
         c2 = cam2.get(frame)
 
+        if c1:
+            c1_X_global = c1["Xs"] + cam1_offset[0]
+            c1_Y_global = c1["Ys"] + cam1_offset[1]
+        if c2:
+            c2_X_global = c2["Xs"] + cam2_offset[0]
+            c2_Y_global = c2["Ys"] + cam2_offset[1]
+
         if c1 and not c2:
             # Camera 1 only
-            row["X"] = c1["Xs"]
-            row["Y"] = c1["Ys"]
+            row["X"] = c1_X_global
+            row["Y"] = c1_Y_global
             row["source"] = "cam1"
             row["inliers"] = c1["inliers"]
 
         elif c2 and not c1:
             # Camera 2 only
-            row["X"] = c2["Xs"]
-            row["Y"] = c2["Ys"]
+            row["X"] = c2_X_global
+            row["Y"] = c2_Y_global
             row["source"] = "cam2"
             row["inliers"] = c2["inliers"]
 
@@ -53,8 +119,8 @@ def fuse(cam1, cam2, out_csv, plot_png):
             if n1 + n2 == 0:
                 continue
 
-            Xf = (c1["Xs"] * n1 + c2["Xs"] * n2) / (n1 + n2)
-            Yf = (c1["Ys"] * n1 + c2["Ys"] * n2) / (n1 + n2)
+            Xf = (c1_X_global * n1 + c2_X_global * n2) / (n1 + n2)
+            Yf = (c1_Y_global * n1 + c2_Y_global * n2) / (n1 + n2)
 
             row["X"] = Xf
             row["Y"] = Yf
@@ -88,9 +154,12 @@ def fuse(cam1, cam2, out_csv, plot_png):
 
 
 if __name__ == "__main__":
-    cam1 = load_csv("trajectory_run_test30_angle1.csv")
-    cam2 = load_csv("trajectory_run_test30_angle2.csv")
+    cam1 = load_csv("trajectory_run_test_stich1.csv")
+    cam2 = load_csv("trajectory_run_test_stich2.csv")
 
     fuse(cam1, cam2,
          out_csv="fused_run.csv",
-         plot_png="fused_plot.png")
+         plot_png="fused_plot.png",
+         cam1_offset=(0, 0),
+         cam2_offset=(0.2, -0.38),
+         )

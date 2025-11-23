@@ -92,8 +92,8 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
     map_h, map_w = 600, 600
     map_img = np.zeros((map_h, map_w, 3), dtype=np.uint8)
 
-    LOWE_RATIO    = 0.6
-    MIN_INLIERS   = 15      # slightly relaxed
+    LOWE_RATIO    = 0.7
+    MIN_INLIERS   = 12      # slightly relaxed
     RANSAC_THRESH = 3.0
 
     # Smoothing state
@@ -224,7 +224,7 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
 
                 ref_vis = cv2.resize(ref_vis, (600, 400))
 
-                cv2.imshow("Current Reference Image (Point Projected)", ref_vis)
+                cv2.imshow("Current Reference Image", ref_vis)
 
                 """
                 END TESTING CODE
@@ -251,10 +251,6 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
                                       margin=50)
                 cv2.circle(map_img, (mx, my), 2, (0, 0, 255), -1)
 
-                # match_img = cv2.drawMatches(ref_data["img"], ref_data["kp"], frame, kp_frame, good_matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-                # match_img = cv2.resize(match_img, (1200, 600))
-                # cv2.imshow("Matches", match_img)
-
             else:
                 cv2.putText(frame, "No ref passed inlier threshold", (10, 60),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)  
@@ -278,8 +274,19 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
         xs = [p[0] for p in trajectory_smooth]
         ys = [p[1] for p in trajectory_smooth]
 
-        plt.figure(figsize=(5, 7))
-        plt.scatter(xs, ys, s=5)
+        plt.figure(figsize=(6, 6))
+
+        plt.scatter(xs, ys, s=5, c='blue', alpha=0.6)
+
+        plt.xlim(0.0, 1.0)
+        plt.ylim(0.0, 1.0)
+
+        ticks = np.arange(0.0, 1.1, 0.1)
+        plt.xticks(ticks)
+        plt.yticks(ticks)
+
+        plt.grid(True, linestyle='--', alpha=0.5)
+        plt.gca().set_aspect('equal', adjustable='box')
         plt.axis('equal')
         plt.title("World trajectory (smoothed)")
         plt.xlabel("World X")
@@ -294,72 +301,77 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
 if __name__ == "__main__":
 
     REF_PATHS  = [
-        "data/ref/ref14_1.jpg",
-        "data/ref/ref14_2.jpg",
-        "data/ref/ref14_3.jpg",
-        "data/ref/ref14_4.jpg",
+        "data/ref/ref14_vid_1.png",
+        'data/ref/ref14_vid_2.png',
+        'data/ref/ref14_vid_3.png',
+        'data/ref/ref14_vid_4.png',
+        "data/ref/ref14_vid_5.png",
+        'data/ref/ref14_vid_6.png',
         "data/ref/ref14_5_blurry.png",
+        # "data/ref/ref14_vid_side1.png",
+        # "data/ref/ref14_vid_side2.png",
+        # "data/ref/ref14_vid_top1.png",
+        # "data/ref/ref14_vid_top2.png",
     ]
 
     TEST_CONFIGS = [
         {
-            "id": "test30_angle1",
+            "id": "test33_1",
             "ext": "mov",
         },
         {
-            "id": "test30_angle2",
-            "ext": "mov",
-        },
+            "id": "test33_2",
+            "ext": "mov"
+        }
     ]
 
-    # threads = [] 
-    
-    # print("Starting threads...")
+    GROUND_TRUTH = [
+        {
+            "id": "test32_ground",
+            "ext": "mov",
+        }
+    ]
 
     # for config in TEST_CONFIGS:
     #     cam_id = config["id"]
     #     extension = config["ext"]
     #     video_path = f'data/videos/{cam_id}.{extension}'
     #     h_inv_path = f'data/calibration/H_{cam_id}.npy'
-
+        
+    #     # Output files based on the configuration ID
     #     csv_out = f"trajectory_run_{cam_id}.csv"
     #     plot_out = f"trajectory_plot_{cam_id}.png"
+        
+    #     print(f"\n--- Running Camera: {cam_id} ---")
+        
+    #     process_camera(
+    #         cam_id, 
+    #         video_path, 
+    #         REF_PATHS, 
+    #         h_inv_path, 
+    #         csv_out,
+    #         plot_out
+    #     )
 
-    #     thread = threading.Thread(target=process_camera, args=(cam_id, video_path, REF_PATHS, h_inv_path, csv_out, plot_out), name=f'Camera Processor {cam_id}')
-    #     thread.start()
-    #     threads.append(thread)
-    
-    # for thread in threads:
-    #     thread.join()
-
-    for config in TEST_CONFIGS:
-        cam_id = config["id"]
-        extension = config["ext"]
-        video_path = f'data/videos/{cam_id}.{extension}'
-        h_inv_path = f'data/calibration/H_{cam_id}.npy'
-        
-        # Output files based on the configuration ID
-        csv_out = f"trajectory_run_{cam_id}.csv"
-        plot_out = f"trajectory_plot_{cam_id}.png"
-        
-        print(f"\n--- Running Camera: {cam_id} ---")
-        
-        process_camera(
-            cam_id, 
-            video_path, 
-            REF_PATHS, 
-            h_inv_path, 
-            csv_out, 
-            plot_out
-        )
+    process_camera(GROUND_TRUTH[0]["id"], f'data/videos/{GROUND_TRUTH[0]["id"]}.{GROUND_TRUTH[0]["ext"]}', REF_PATHS, f'data/calibration/H_{GROUND_TRUTH[0]["id"]}.npy', f'ground_run_{GROUND_TRUTH[0]["id"]}', f'ground_plot_{GROUND_TRUTH[0]["id"]}')
 
     print("\n--- All runs complete ---")
 
-    # if TEST_CONFIGS.__sizeof__() > 1:
-    #     print("Fusing trajectories...")
-    #     fuse_trajectories.fuse(
-    #         cam1=fuse_trajectories.load_csv(f"trajectory_run_{TEST_CONFIGS[0]['id']}.csv"),
-    #         cam2=fuse_trajectories.load_csv(f"trajectory_run_{TEST_CONFIGS[1]['id']}.csv"),
-    #         out_csv=f"fused_trajectory_{TEST_CONFIGS[0]['id']}_{TEST_CONFIGS[1]['id']}.csv",
-    #         plot_png=f"fused_plot_{TEST_CONFIGS[0]['id']}_{TEST_CONFIGS[1]['id']}.png"
-    #     )
+    if len(TEST_CONFIGS) >= 2:
+        print("Fusing trajectories...")
+        id1 = TEST_CONFIGS[0]["id"]
+        id2 = TEST_CONFIGS[1]["id"]
+        csv1 = f"trajectory_run_{id1}.csv"
+        csv2 = f"trajectory_run_{id2}.csv"
+        cam1_data = fuse_trajectories.load_csv(csv1)
+        cam2_data = fuse_trajectories.load_csv(csv2)
+        off_x , off_y = fuse_trajectories.calculate_offset1(cam1_data, cam2_data)
+        print(f"Offset X: {off_x:.4f}, Y: {off_y:.4f}")
+        fuse_trajectories.fuse(
+            cam1=cam1_data,
+            cam2=cam2_data,
+            out_csv=f"fused_trajectory_{id1}_{id2}.csv",
+            plot_png=f"fused_plot_{id1}_{id2}.png",
+            cam1_offset=(0, 0),
+            cam2_offset=(off_x, off_y),
+        )
