@@ -308,21 +308,17 @@ if __name__ == "__main__":
         "data/ref/ref14_vid_5.png",
         'data/ref/ref14_vid_6.png',
         "data/ref/ref14_5_blurry.png",
-        # "data/ref/ref14_vid_side1.png",
-        # "data/ref/ref14_vid_side2.png",
-        # "data/ref/ref14_vid_top1.png",
-        # "data/ref/ref14_vid_top2.png",
+        "data/ref/ref14_vid_side1.png",
+        "data/ref/ref14_vid_side2.png",
+        "data/ref/ref14_vid_top1.png",
+        "data/ref/ref14_vid_top2.png",
     ]
 
     TEST_CONFIGS = [
         {
-            "id": "test33_1",
+            "id": "test3_3d",
             "ext": "mov",
         },
-        {
-            "id": "test33_2",
-            "ext": "mov"
-        }
     ]
 
     GROUND_TRUTH = [
@@ -332,28 +328,28 @@ if __name__ == "__main__":
         }
     ]
 
-    # for config in TEST_CONFIGS:
-    #     cam_id = config["id"]
-    #     extension = config["ext"]
-    #     video_path = f'data/videos/{cam_id}.{extension}'
-    #     h_inv_path = f'data/calibration/H_{cam_id}.npy'
+    for config in TEST_CONFIGS:
+        cam_id = config["id"]
+        extension = config["ext"]
+        video_path = f'data/videos/{cam_id}.{extension}'
+        h_inv_path = f'data/calibration/H_{cam_id}.npy'
         
-    #     # Output files based on the configuration ID
-    #     csv_out = f"trajectory_run_{cam_id}.csv"
-    #     plot_out = f"trajectory_plot_{cam_id}.png"
+        # Output files based on the configuration ID
+        csv_out = f"trajectory_run_{cam_id}.csv"
+        plot_out = f"trajectory_plot_{cam_id}.png"
         
-    #     print(f"\n--- Running Camera: {cam_id} ---")
+        print(f"\n--- Running Camera: {cam_id} ---")
         
-    #     process_camera(
-    #         cam_id, 
-    #         video_path, 
-    #         REF_PATHS, 
-    #         h_inv_path, 
-    #         csv_out,
-    #         plot_out
-    #     )
+        process_camera(
+            cam_id, 
+            video_path, 
+            REF_PATHS, 
+            h_inv_path, 
+            csv_out,
+            plot_out
+        )
 
-    process_camera(GROUND_TRUTH[0]["id"], f'data/videos/{GROUND_TRUTH[0]["id"]}.{GROUND_TRUTH[0]["ext"]}', REF_PATHS, f'data/calibration/H_{GROUND_TRUTH[0]["id"]}.npy', f'ground_run_{GROUND_TRUTH[0]["id"]}', f'ground_plot_{GROUND_TRUTH[0]["id"]}')
+    # process_camera(GROUND_TRUTH[0]["id"], f'data/videos/{GROUND_TRUTH[0]["id"]}.{GROUND_TRUTH[0]["ext"]}', REF_PATHS, f'data/calibration/H_{GROUND_TRUTH[0]["id"]}.npy', f'ground_run_{GROUND_TRUTH[0]["id"]}', f'ground_plot_{GROUND_TRUTH[0]["id"]}')
 
     print("\n--- All runs complete ---")
 
