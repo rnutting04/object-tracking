@@ -18,11 +18,12 @@ def load_csv(path):
             }
     return data
 
-def calculate_offset1(cam1, cam2):
+def calculate_offset(cam1, cam2):
     """
     Calculates the (x, y) translation required to align cam2 to cam1
     based on the average difference of overlapping frames.
     """
+
     # Find frames present in both datasets
     common_frames = set(cam1.keys()) & set(cam2.keys())
     
@@ -53,31 +54,11 @@ def calculate_offset1(cam1, cam2):
 
     return (offset_x, offset_y)
 
-def calculate_offset2(cam1, cam2):
-    if not cam1 or not cam2:
-        print ("No data to calculate offset")
-        return (0, 0)
-    
-    cam1_frames = sorted(cam1.keys())
-    last_frame_a = cam1_frames[-1]
-
-    if last_frame_a not in cam2:
-        print ("No data for last frame in cam2")
-        return (0, 0)
-    
-    val_x = cam1[last_frame_a]["Xs"]
-    val_y = cam2[last_frame_a]["Ys"]
-
-    calc_x = 1.0 - val_x
-    calc_y = 1.0 - val_y
-
-    offset_x = calc_x
-    offset_y = -calc_y
-
-    return (offset_x, offset_y)
-
-
 def fuse(cam1, cam2, out_csv, plot_png, cam1_offset = (0, 0), cam2_offset = (0, 0)):
+    """
+    Fuses two trajectories together, using the offset calculated by calculate_offset()
+    """
+
     # Collect all frames across both cameras
     all_frames = sorted(set(cam1.keys()) | set(cam2.keys()))
 
@@ -154,6 +135,10 @@ def fuse(cam1, cam2, out_csv, plot_png, cam1_offset = (0, 0), cam2_offset = (0, 
 
 
 if __name__ == "__main__":
+    """
+    Stand alone script to run the fuse function
+    """
+    
     cam1 = load_csv("trajectory_run_test_stich1.csv")
     cam2 = load_csv("trajectory_run_test_stich2.csv")
 

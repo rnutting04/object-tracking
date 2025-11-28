@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import csv
 import os
-import threading
 
 import calibrate_homography
 import fuse_trajectories
@@ -11,6 +10,10 @@ import fuse_trajectories
 
 
 def load_h_inv(path):
+    """
+    Loads the homography matrix from a .npy file
+    """
+
     H_inv = np.load(path)
     if H_inv.shape != (3, 3):
         raise RuntimeError("H_inv.npy must be a 3x3 matrix")
@@ -18,6 +21,10 @@ def load_h_inv(path):
 
 
 def image_to_world(cx, cy, H_inv):
+    """
+    Converts a point in the image to the world coordinates
+    """
+
     pt_img = np.array([cx, cy, 1.0], dtype=np.float32)
     pt_world_h = H_inv @ pt_img
     pt_world_h /= pt_world_h[2]
@@ -25,7 +32,9 @@ def image_to_world(cx, cy, H_inv):
 
 
 def world_to_map(X, Y, img_size=(600, 600), margin=50):
-    """Fixed mapping: assume world roughly in [0,1]x[0,1]."""
+    """
+    Converts a point in the world to the image coordinates
+    """
     h, w = img_size
     scale_x = w - 2 * margin
     scale_y = h - 2 * margin
@@ -35,6 +44,9 @@ def world_to_map(X, Y, img_size=(600, 600), margin=50):
 
 
 def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, csv_out: str, plot_out: str):
+    """
+    Processes a single camera video
+    """
 
     if not os.path.exists(h_inv_path):
         print(f"Calibrating homography for {cam_id}...")
@@ -299,26 +311,32 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
 
 
 if __name__ == "__main__":
+    """
+    Script used to run the entire pipeline.
+    """
 
     REF_PATHS  = [
         "data/ref/ref14_vid_1.png",
         'data/ref/ref14_vid_2.png',
-        'data/ref/ref14_vid_3.png',
-        'data/ref/ref14_vid_4.png',
-        "data/ref/ref14_vid_5.png",
-        'data/ref/ref14_vid_6.png',
+        # 'data/ref/ref14_vid_3.png',
+        # 'data/ref/ref14_vid_4.png',
+        # "data/ref/ref14_vid_5.png",
         "data/ref/ref14_5_blurry.png",
-        "data/ref/ref14_vid_side1.png",
-        "data/ref/ref14_vid_side2.png",
-        "data/ref/ref14_vid_top1.png",
-        "data/ref/ref14_vid_top2.png",
+        # "data/ref/ref14_vid_side1.png",
+        # "data/ref/ref14_vid_side2.png",
+        # "data/ref/ref14_vid_top1.png",
+        # "data/ref/ref14_vid_top2.png",
     ]
 
     TEST_CONFIGS = [
         {
-            "id": "test3_3d",
+            "id": "test32_1",
             "ext": "mov",
         },
+        {
+            "id": "test32_2",
+            "ext": "mov",
+        }
     ]
 
     GROUND_TRUTH = [
@@ -328,6 +346,8 @@ if __name__ == "__main__":
         }
     ]
 
+
+    # Run the pipeline for eachh test file.
     for config in TEST_CONFIGS:
         cam_id = config["id"]
         extension = config["ext"]
@@ -335,8 +355,8 @@ if __name__ == "__main__":
         h_inv_path = f'data/calibration/H_{cam_id}.npy'
         
         # Output files based on the configuration ID
-        csv_out = f"trajectory_run_{cam_id}.csv"
-        plot_out = f"trajectory_plot_{cam_id}.png"
+        csv_out = f"output/trajectory_run_{cam_id}.csv"
+        plot_out = f"output/trajectory_plot_{cam_id}.png"
         
         print(f"\n--- Running Camera: {cam_id} ---")
         
@@ -349,10 +369,12 @@ if __name__ == "__main__":
             plot_out
         )
 
-    # process_camera(GROUND_TRUTH[0]["id"], f'data/videos/{GROUND_TRUTH[0]["id"]}.{GROUND_TRUTH[0]["ext"]}', REF_PATHS, f'data/calibration/H_{GROUND_TRUTH[0]["id"]}.npy', f'ground_run_{GROUND_TRUTH[0]["id"]}', f'ground_plot_{GROUND_TRUTH[0]["id"]}')
+    # Run the ground truth pipeline
+    process_camera(GROUND_TRUTH[0]["id"], f'data/videos/{GROUND_TRUTH[0]["id"]}.{GROUND_TRUTH[0]["ext"]}', REF_PATHS, f'data/calibration/H_{GROUND_TRUTH[0]["id"]}.npy', f'output/ground_run_{GROUND_TRUTH[0]["id"]}.csv', f'output/ground_plot_{GROUND_TRUTH[0]["id"]}.png')
 
     print("\n--- All runs complete ---")
 
+    # Fuse the trajectories if there are two test files
     if len(TEST_CONFIGS) >= 2:
         print("Fusing trajectories...")
         id1 = TEST_CONFIGS[0]["id"]
@@ -361,13 +383,13 @@ if __name__ == "__main__":
         csv2 = f"trajectory_run_{id2}.csv"
         cam1_data = fuse_trajectories.load_csv(csv1)
         cam2_data = fuse_trajectories.load_csv(csv2)
-        off_x , off_y = fuse_trajectories.calculate_offset1(cam1_data, cam2_data)
+        off_x , off_y = fuse_trajectories.calculate_offset(cam1_data, cam2_data)
         print(f"Offset X: {off_x:.4f}, Y: {off_y:.4f}")
         fuse_trajectories.fuse(
             cam1=cam1_data,
             cam2=cam2_data,
-            out_csv=f"fused_trajectory_{id1}_{id2}.csv",
-            plot_png=f"fused_plot_{id1}_{id2}.png",
+            out_csv=f"output/fused_trajectory_{id1}_{id2}.csv",
+            plot_png=f"output/fused_plot_{id1}_{id2}.png",
             cam1_offset=(0, 0),
             cam2_offset=(off_x, off_y),
         )

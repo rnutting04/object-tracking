@@ -2,9 +2,6 @@
 import cv2
 import numpy as np
 
-VIDEO_PATH = "data/videos/test23_angle1.mov"   # change if needed
-H_INV_OUT = "data/calibration/H_test23_angle1.npy"
-
 # world coordinates of the four floor markers (meters, for example)
 # order: P0 -> P1 -> P2 -> P3 in a rectangle order
 world_pts = np.array([
@@ -16,7 +13,10 @@ world_pts = np.array([
 
 clicked_pts = []  # to store image points
 
-def mouse_callback(event, x, y, flags, param):
+def mouse_callback(event, x, y):
+    """
+    Mouse callback for the calibration process
+    """
     global clicked_pts, frame_copy
     if event == cv2.EVENT_LBUTTONDOWN:
         if len(clicked_pts) < 4:
@@ -25,6 +25,10 @@ def mouse_callback(event, x, y, flags, param):
             cv2.circle(frame_copy, (x, y), 5, (0, 0, 255), -1)
 
 def calibrate_now(video_path, output_path):
+    """
+    Calibrates the camera using the mouse callback to select the four corners of the floor
+    """
+
     global clicked_pts, frame_copy
 
     clicked_pts = []
@@ -79,4 +83,11 @@ def calibrate_now(video_path, output_path):
     print("H_inv =\n", H_inv)
 
 if __name__ == "__main__":
+    """
+    Stand alone script to run the calibrate function
+    """
+
+    VIDEO_PATH = "data/videos/test23_angle1.mov"   # change if needed
+    H_INV_OUT = "data/calibration/H_test23_angle1.npy"
+
     calibrate_now(VIDEO_PATH, H_INV_OUT)

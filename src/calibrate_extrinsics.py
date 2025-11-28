@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 # --- CONFIGURATION ---
-VIDEO_PATH = "data/videos/test3_3d.mov" 
+VIDEO_PATH = "data/videos/test2_3d_side.mov" 
 OUTPUT_PATH = "data/calibration/camera_pose.npz"
 
 # Define the REAL WORLD coordinates of the 4 points you will click.

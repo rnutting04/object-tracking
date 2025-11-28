@@ -172,18 +172,19 @@ if __name__ == "__main__":
         "data/ref/ref14_vid_1.png",
         'data/ref/ref14_vid_2.png',
         'data/ref/ref14_vid_3.png',
-        'data/ref/ref14_vid_4.png',
-        "data/ref/ref14_vid_5.png",
+        # 'data/ref/ref14_vid_4.png',
+        # "data/ref/ref14_vid_5.png",
         'data/ref/ref14_vid_6.png',
         "data/ref/ref14_5_blurry.png",
-        "data/ref/ref14_vid_side1.png",
-        "data/ref/ref14_vid_side2.png",
-        "data/ref/ref14_vid_top1.png",
-        "data/ref/ref14_vid_top2.png",
+        # "data/ref/ref14_vid_side1.png",
+        # "data/ref/ref14_vid_side2.png",
+        # "data/ref/ref14_vid_top1.png",
+        # "data/ref/ref14_vid_top2.png",
+        "data/ref/ref14_side_blurry.png",
     ]
 
     process_camera_3d_corrected(
-        video_path="data/videos/test3_3d.mov",
+        video_path="data/videos/test2_3d_side.mov",
         ref_paths=REF_PATHS, # Add your refs here
         calibration_path="data/calibration/camera_pose.npz",
         csv_out="3d_track.csv",
