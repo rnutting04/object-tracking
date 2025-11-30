@@ -2,18 +2,11 @@
 import cv2
 import numpy as np
 
-# world coordinates of the four floor markers (meters, for example)
-# order: P0 -> P1 -> P2 -> P3 in a rectangle order
-world_pts = np.array([
-    [0.0, 0.0],   # bottom-left
-    [1.0, 0.0],   # bottom-right
-    [1.0, 1.0],   # top-right
-    [0.0, 1.0],   # top-left
-], dtype=np.float32)
-
 clicked_pts = []  # to store image points
+frame_copy = None
+WINDOW_NAME = "Calibrate 2D"
 
-def mouse_callback(event, x, y):
+def mouse_callback(event, x, y, flags, param):
     """
     Mouse callback for the calibration process
     """
@@ -22,16 +15,25 @@ def mouse_callback(event, x, y):
         if len(clicked_pts) < 4:
             clicked_pts.append([x, y])
             print(f"Clicked: {x}, {y}")
-            cv2.circle(frame_copy, (x, y), 5, (0, 0, 255), -1)
+            if frame_copy is not None:
+                cv2.circle(frame_copy, (x, y), 5, (0, 0, 255), -1)
 
-def calibrate_now(video_path, output_path):
+def calibrate_now(video_path, output_path, real_width = 1.0, real_height = 1.0):
     """
     Calibrates the camera using the mouse callback to select the four corners of the floor
     """
-
     global clicked_pts, frame_copy
 
-    clicked_pts = []
+    clicked_pts = []  # to store image points
+
+    # world coordinates of the four floor markers (meters, for example)
+    # order: P0 -> P1 -> P2 -> P3 in a rectangle order
+    world_pts = np.array([
+        [0.0, 0.0],   # bottom-left
+        [real_width, 0.0],   # bottom-right
+        [real_width, real_height],   # top-right
+        [0.0, real_height],   # top-left
+    ], dtype=np.float32)
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -87,7 +89,7 @@ if __name__ == "__main__":
     Stand alone script to run the calibrate function
     """
 
-    VIDEO_PATH = "data/videos/test23_angle1.mov"   # change if needed
-    H_INV_OUT = "data/calibration/H_test23_angle1.npy"
+    VIDEO_PATH = "data/videos/test_cam1.mov"   # change if needed
+    H_INV_OUT = "data/calibration/H_test_cam1.npy"
 
     calibrate_now(VIDEO_PATH, H_INV_OUT)

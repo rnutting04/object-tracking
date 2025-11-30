@@ -31,19 +31,23 @@ def image_to_world(cx, cy, H_inv):
     return float(pt_world_h[0]), float(pt_world_h[1])
 
 
-def world_to_map(X, Y, img_size=(600, 600), margin=50):
+def world_to_map(X, Y, r_width=1.0, r_height=1.0, img_size=(600, 600), margin=50):
     """
     Converts a point in the world to the image coordinates
     """
     h, w = img_size
     scale_x = w - 2 * margin
     scale_y = h - 2 * margin
-    mx = int(X * scale_x + margin)
-    my = int((1.0 - Y) * scale_y + margin)  # flip Y so up is up
+    
+    norm_x = X / r_width
+    norm_y = Y / r_height
+
+    mx = int(norm_x * scale_x + margin)
+    my = int((1.0 - norm_y) * scale_y + margin)  # flip Y so up is up
     return mx, my
 
 
-def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, csv_out: str, plot_out: str):
+def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, csv_out: str, plot_out: str, r_width=1.0, r_height=1.0):
     """
     Processes a single camera video
     """
@@ -101,7 +105,16 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
     trajectory_raw = []     # list of (X, Y)
     trajectory_smooth = []  # list of (Xs, Ys)
 
-    map_h, map_w = 600, 600
+    BASE_SIZE = 600
+    aspect_ratio = r_width / r_height
+
+    if aspect_ratio >= 1.0:
+        map_h = int(BASE_SIZE / aspect_ratio)
+        map_w = BASE_SIZE
+    else:
+        map_h = BASE_SIZE
+        map_w = int(BASE_SIZE * aspect_ratio)
+
     map_img = np.zeros((map_h, map_w, 3), dtype=np.uint8)
 
     LOWE_RATIO    = 0.7
@@ -129,7 +142,7 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
         best_candidate = None
 
         if des_frame is None or len(des_frame) < 5:
-            cv2.putText(frame, "No frame descriptors", (10, 30),
+            cv2.putText(frame, "No frame descriptors", (10, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
         else:
             # Try all references, pick the one with most inliers
@@ -259,9 +272,11 @@ def process_camera(cam_id:str, video_path:str, ref_paths:list, h_inv_path:str, c
 
                 # Draw smoothed path on map
                 mx, my = world_to_map(smooth_X, smooth_Y,
+                                      r_width=r_width, r_height=r_height,
                                       img_size=(map_h, map_w),
                                       margin=50)
-                cv2.circle(map_img, (mx, my), 2, (0, 0, 255), -1)
+                if 0 <= mx < map_w and 0 <= my < map_h:
+                    cv2.circle(map_img, (mx, my), 2, (0, 0, 255), -1)
 
             else:
                 cv2.putText(frame, "No ref passed inlier threshold", (10, 60),
@@ -330,12 +345,16 @@ if __name__ == "__main__":
 
     TEST_CONFIGS = [
         {
-            "id": "test32_1",
+            "id": "test_diff_1",
             "ext": "mov",
+            "width": 1.0,
+            "height": 1.0,
         },
         {
-            "id": "test32_2",
+            "id": "test_diff_2",
             "ext": "mov",
+            "width": 1.5,
+            "height": 1.0,
         }
     ]
 
@@ -343,6 +362,8 @@ if __name__ == "__main__":
         {
             "id": "test32_ground",
             "ext": "mov",
+            "width": 1.0,
+            "height": 1.0,
         }
     ]
 
@@ -351,6 +372,10 @@ if __name__ == "__main__":
     for config in TEST_CONFIGS:
         cam_id = config["id"]
         extension = config["ext"]
+
+        rw = config.get("width", 1.0)
+        rh = config.get("height", 1.0)
+
         video_path = f'data/videos/{cam_id}.{extension}'
         h_inv_path = f'data/calibration/H_{cam_id}.npy'
         
@@ -366,11 +391,13 @@ if __name__ == "__main__":
             REF_PATHS, 
             h_inv_path, 
             csv_out,
-            plot_out
+            plot_out,
+            r_width=rw,
+            r_height=rh,
         )
 
     # Run the ground truth pipeline
-    process_camera(GROUND_TRUTH[0]["id"], f'data/videos/{GROUND_TRUTH[0]["id"]}.{GROUND_TRUTH[0]["ext"]}', REF_PATHS, f'data/calibration/H_{GROUND_TRUTH[0]["id"]}.npy', f'output/ground_run_{GROUND_TRUTH[0]["id"]}.csv', f'output/ground_plot_{GROUND_TRUTH[0]["id"]}.png')
+    # process_camera(GROUND_TRUTH[0]["id"], f'data/videos/{GROUND_TRUTH[0]["id"]}.{GROUND_TRUTH[0]["ext"]}', REF_PATHS, f'data/calibration/H_{GROUND_TRUTH[0]["id"]}.npy', f'output/ground_run_{GROUND_TRUTH[0]["id"]}.csv', f'output/ground_plot_{GROUND_TRUTH[0]["id"]}.png')
 
     print("\n--- All runs complete ---")
 
@@ -379,8 +406,8 @@ if __name__ == "__main__":
         print("Fusing trajectories...")
         id1 = TEST_CONFIGS[0]["id"]
         id2 = TEST_CONFIGS[1]["id"]
-        csv1 = f"trajectory_run_{id1}.csv"
-        csv2 = f"trajectory_run_{id2}.csv"
+        csv1 = f"output/trajectory_run_{id1}.csv"
+        csv2 = f"output/trajectory_run_{id2}.csv"
         cam1_data = fuse_trajectories.load_csv(csv1)
         cam2_data = fuse_trajectories.load_csv(csv2)
         off_x , off_y = fuse_trajectories.calculate_offset(cam1_data, cam2_data)
