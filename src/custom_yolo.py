@@ -216,6 +216,16 @@ def train_model():
     
     transform = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
+        # 1. Geometry Augmentation (Simulates Camera Angle Changes)
+        # Randomly flip horizontal (Mirror view)
+        transforms.RandomHorizontalFlip(p=0.5),
+        # Randomly rotate +/- 10 degrees (Camera tilt)
+        transforms.RandomRotation(degrees=10),
+        # Randomly zoom in/out and squish (Simulates distance/perspective)
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.8, 1.2)),
+        
+        # 2. Lighting Augmentation (Simulates Shadows/Different Room Spots)
+        transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.05),
         transforms.ToTensor(),
     ])
 
@@ -227,13 +237,13 @@ def train_model():
 
     model = TinyYOLO().to(DEVICE)
     loss_fn = SimpleYOLOLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     print(f"Training on {len(train_dataset)} images...")
 
     # Overfitting Loop (100 epochs is usually plenty for a demo on small data)
     model.train()
-    for epoch in range(100):
+    for epoch in range(200):
         total_loss = 0
         for batch_idx, (img, target) in enumerate(train_loader):
             img, target = img.to(DEVICE), target.to(DEVICE)
@@ -253,101 +263,10 @@ def train_model():
     torch.save(model.state_dict(), "simple_yolo_weights.pth")
     print("Saved to 'simple_yolo_weights.pth'")
 
-# --- 5. INFERENCE (FOR YOUR PIPELINE) ---
-def get_boxes_for_pipeline(image_path, model_path="simple_yolo_weights.pth", threshold=0.5):
-    """
-    Returns list of [x, y, w, h] normalized (0-1) for your tracking pipeline.
-    """
-    model = TinyYOLO().to(DEVICE)
-    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
-    model.eval()
-
-    transform = transforms.Compose([
-        transforms.Resize((IMG_SIZE, IMG_SIZE)),
-        transforms.ToTensor(),
-    ])
-
-    img = Image.open(image_path).convert("RGB")
-    img_tensor = transform(img).unsqueeze(0).to(DEVICE)
-
-    with torch.no_grad():
-        preds = model(img_tensor) # (1, 7, 7, 11)
-        preds = preds.squeeze(0)  # (7, 7, 11)
-
-    detected_boxes = []
-
-    for i in range(GRID_SIZE):
-        for j in range(GRID_SIZE):
-            # Check confidence of Box 1
-            conf1 = preds[i, j, 4]
-            # Check confidence of Box 2
-            conf2 = preds[i, j, 9]
-
-            # We take the box with higher confidence if it passes threshold
-            if conf1 > threshold or conf2 > threshold:
-                best_box = preds[i, j, 0:4] if conf1 > conf2 else preds[i, j, 5:9]
-                
-                # Decode relative coords back to global 0-1 coords
-                x_cell, y_cell, w, h = best_box
-                
-                # Global X = (Index + relative_x) / Grid_Size
-                global_x = (j + x_cell) / GRID_SIZE
-                global_y = (i + y_cell) / GRID_SIZE
-                
-                detected_boxes.append([float(global_x), float(global_y), float(w), float(h)])
-
-    return detected_boxes
-
 if __name__ == "__main__":
-    # Create dummy folders if they don't exist
     os.makedirs("./data/images", exist_ok=True)
     os.makedirs("./data/labels", exist_ok=True)
-    
     if len(glob.glob("./data/images/*.jpg")) > 0:
         train_model()
     else:
-        print("Please put images in ./data/images and labels in ./data/labels")
-        print("Then run this script to train.")
-
-
-### 2. How to Label Data (Crucial)
-'''
-Since "no mistakes" is the requirement, you must verify your data labels match the format the script expects. 
-
-1.  **Format:** Standard YOLO format `.txt` file for each image.
-2.  **Content:** `<class_id> <x_center> <y_center> <width> <height>`
-3.  **Values:** Must be normalized between 0 and 1.
-    * `x_center = absolute_x / image_width`
-    * `width = absolute_width / image_width`
-4.  **Class ID:** Always `0` (since we only care about people).
-
-**Example `data/labels/frame_001.txt`:**
-```text
-0 0.50 0.60 0.10 0.35
-0 0.20 0.40 0.08 0.30
-```
-*(This represents two people).*
-
-### 3. Integrating with your Pipeline
-
-Since your post-processing is already working, you just need to swap your old detector call with the `get_boxes_for_pipeline` function from the script above.
-
-**Your pipeline usage:**
-```python
-'''
-import custom_yolo
-
-# Load logic...
-image_path = "current_camera_frame.jpg"
-
-# Get raw boxes [x, y, w, h] (normalized 0-1)
-boxes = custom_yolo.get_boxes_for_pipeline(image_path, threshold=0.4)
-
-# Pass to your existing tracker
-for box in boxes:
-    x, y, w, h = box
-    # Convert to pixels if your tracker expects pixels
-    pixel_x = x * FRAME_WIDTH
-    pixel_y = y * FRAME_HEIGHT
-    
-    # ... Your existing Pathing Logic ...
+        print("Dataset not found. Please put images in ./data/images and labels in ./data/labels")

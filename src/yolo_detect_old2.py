@@ -15,7 +15,7 @@ import align_planes
 from grab_path import load_h_inv, image_to_world, world_to_map
 
 def process_camera_yolo(cam_id, video_path, h_inv_path, csv_out, plot_out, r_width=1.0, r_height=1.0):
-    """
+    """ 
     Detects a person using YOLOv8 and maps their feet to world coordinates.
     """
     
