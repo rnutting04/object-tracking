@@ -61,6 +61,9 @@ def world_to_map(X, Y, r_width=1.0, r_height=1.0, img_size=(600, 600), margin=50
     return mx, my
 
 def load_references(ref_paths, sift):
+    """
+    Loads reference images and returns a list of descriptors.
+    """
     # Load refs
     refs = []
     for path in ref_paths:  
@@ -94,6 +97,9 @@ def load_references(ref_paths, sift):
     return refs
 
 def plot_graph(trajectory_smooth, plot_out):
+    """
+    Plots the trajectory using matplotlib.
+    """
 
     if not trajectory_smooth:
         print("No trajectory points recorded – nothing to plot.")

@@ -3,18 +3,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-def load_trajectory(csv_path, bounds):
+def load_trajectory(csv_path):
+    """
+    Loads a CSV file containing X and Y coordinates.
+    """
     xs, ys = [], []
 
     if not os.path.exists(csv_path):
-        print(f"[ERROR] File not found: {csv_path}")
+        print(f"File not found: {csv_path}")
         return np.array([]), np.array([])
 
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
             try:
-                # Support 'Xs'/'Ys' from your YOLO script or 'x'/'y' generic
+                # Get X and Y coordinates
                 x_str = row.get('Xs') or row.get('x') or row.get('X')
                 y_str = row.get('Ys') or row.get('y') or row.get('Y')
 
@@ -32,24 +35,25 @@ def load_trajectory(csv_path, bounds):
 
 def create_global_plot(csv1_path, csv2_path, off_x, off_y, output_png, bounds1, bounds2):
     """
-    Loads two CSVs, applies (off_x, off_y) to the second one, and saves a plot.
+    Loads two CSVs representing two planes, applies offset to the second one, and saves a plot.
     """
-    print(f"[FUSE] Merging trajectories with Offset X={off_x:.4f}, Y={off_y:.4f}")
 
-    # 1. Load Trajectories
-    c1_x, c1_y = load_trajectory(csv1_path, bounds=bounds1)
+    print(f"Merging trajectories with Offset X={off_x:.4f}, Y={off_y:.4f}")
 
-    c2_x, c2_y = load_trajectory(csv2_path, bounds=bounds2)
+    # Load Trajectories
+    c1_x, c1_y = load_trajectory(csv1_path)
+
+    c2_x, c2_y = load_trajectory(csv2_path)
 
     if len(c1_x) == 0 and len(c2_x) == 0:
-        print("[ERROR] No data found in CSVs.")
+        print("No data found in CSVs.")
         return
 
-    # 2. Apply Offset to Camera 2 (Local -> Global)
+    # Apply Offset to Camera 2
     c2_x_global = c2_x + off_x
     c2_y_global = c2_y + off_y
 
-    # 3. Plotting
+    # Plotting
     plt.figure(figsize=(10, 8))
     
     if len(c1_x) > 0:
@@ -67,5 +71,5 @@ def create_global_plot(csv1_path, csv2_path, off_x, off_y, output_png, bounds1, 
 
     plt.tight_layout()
     plt.savefig(output_png, dpi=150)
-    print(f"[SUCCESS] Merged plot saved to {output_png}")
+    print(f"Merged plot saved to {output_png}")
     plt.close()

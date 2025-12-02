@@ -2,7 +2,7 @@
 import cv2
 import numpy as np
 
-# Gllobal Variables
+# Global Variables
 
 clicked_pts = []
 frame_copy = None
