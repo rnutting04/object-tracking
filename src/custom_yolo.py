@@ -216,15 +216,7 @@ def train_model():
     
     transform = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
-        # 1. Geometry Augmentation (Simulates Camera Angle Changes)
-        # Randomly flip horizontal (Mirror view)
-        transforms.RandomHorizontalFlip(p=0.5),
-        # Randomly rotate +/- 10 degrees (Camera tilt)
-        transforms.RandomRotation(degrees=10),
-        # Randomly zoom in/out and squish (Simulates distance/perspective)
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.8, 1.2)),
-        
-        # 2. Lighting Augmentation (Simulates Shadows/Different Room Spots)
+        # Lighting Augmentation (Simulates Shadows/Different Room Spots)
         transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.05),
         transforms.ToTensor(),
     ])
@@ -243,7 +235,7 @@ def train_model():
 
     # Overfitting Loop (100 epochs is usually plenty for a demo on small data)
     model.train()
-    for epoch in range(200):
+    for epoch in range(50):
         total_loss = 0
         for batch_idx, (img, target) in enumerate(train_loader):
             img, target = img.to(DEVICE), target.to(DEVICE)
@@ -257,7 +249,7 @@ def train_model():
             total_loss += loss.item()
 
         if epoch % 10 == 0:
-            print(f"Epoch [{epoch}/100] Loss: {total_loss:.4f}")
+            print(f"Epoch [{epoch}/50] Loss: {total_loss:.4f}")
 
     print("--- Training Complete. Saving weights. ---")
     torch.save(model.state_dict(), "simple_yolo_weights.pth")
