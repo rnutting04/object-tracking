@@ -9,10 +9,43 @@ import matplotlib.pyplot as plt
 from ultralytics import YOLO
 
 import calibrate_homography
+# import fuse_yolo
+import fuse_test
 import fuse_yolo
 import align_planes
 # Import your existing calibration helper
-from grab_path import load_h_inv, image_to_world, world_to_map
+from grab_path import load_h_inv, image_to_world
+
+def map_to_static_window(x, y, r_width, r_height, img_w, img_h, margin=50):
+    """
+    Maps world coordinates (x, y) to image coordinates (u, v)
+    preserving aspect ratio within a static window size.
+    """
+    # 1. Determine safe drawing area
+    draw_w = img_w - 2 * margin
+    draw_h = img_h - 2 * margin
+
+    # 2. Calculate scale (pixels per unit) to fit the largest dimension
+    # We want the 'room' (r_width x r_height) to fit entirely inside draw area
+    scale_x = draw_w / r_width
+    scale_y = draw_h / r_height
+    scale = min(scale_x, scale_y) # Use the smaller scale to ensure it fits
+
+    # 3. Center the plot
+    # Calculate how much pixel space the room actually takes up
+    occupied_w = r_width * scale
+    occupied_h = r_height * scale
+
+    # Offset to center the room in the window
+    offset_x = margin + (draw_w - occupied_w) / 2
+    offset_y = margin + (draw_h - occupied_h) / 2
+
+    # 4. Map coordinates
+    # Y is inverted (image 0,0 is top-left, world 0,0 is bottom-left usually)
+    u = int(x * scale + offset_x)
+    v = int(img_h - (y * scale + offset_y)) 
+    
+    return u, v
 
 def process_camera_yolo(cam_id, video_path, h_inv_path, csv_out, plot_out, r_width=1.0, r_height=1.0):
     """ 
@@ -48,15 +81,12 @@ def process_camera_yolo(cam_id, video_path, h_inv_path, csv_out, plot_out, r_wid
     smooth_state = {}
     SMOOTH_ALPHA = 0.2
 
-    BASE_SIZE = 600
-    aspect_ratio = r_width / r_height
+    MAP_W = 600
+    MAP_H = 600
+    map_img = np.zeros((MAP_H, MAP_W, 3), dtype=np.uint8)
 
-    if aspect_ratio >= 1.0:
-        map_w, map_h = BASE_SIZE, int(BASE_SIZE / aspect_ratio)
-    else:
-        map_h, map_w = BASE_SIZE, int(BASE_SIZE * aspect_ratio)
-
-    map_img = np.zeros((map_h, map_w, 3), dtype=np.uint8)
+    MAX_REAL_HEIGHT = r_height * 1.5
+    MAX_REAL_WIDTH = r_width * 1.5
 
     frame_idx = 0
 
@@ -102,23 +132,24 @@ def process_camera_yolo(cam_id, video_path, h_inv_path, csv_out, plot_out, r_wid
                     sy = (1.0 - SMOOTH_ALPHA) * prev_sy + SMOOTH_ALPHA * raw_Y
                     smooth_state[track_id] = (sx, sy)
 
-                # Save to CSV
-                csv_writer.writerow([frame_idx, track_id, f"{sx:.4f}", f"{sy:.4f}"])
-
-                trajectory_smooth.append((sx, sy))
-
                 # Draw Box
                 cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
                 # Draw Feet
                 cv2.circle(frame, (int(feet_x), int(feet_y)), 5, (0, 0, 255), -1)
 
-                mx, my = world_to_map(sx, sy,
-                                      r_width=r_width, r_height=r_height,
-                                      img_size=(map_h, map_w),
-                                      margin=50)
+                if -2.0 <= sx <= MAX_REAL_WIDTH and -2.0 <= sy <= MAX_REAL_HEIGHT:
 
-                if 0 <= mx < map_w and 0 <= my < map_h:
-                    cv2.circle(map_img, (mx, my), 2, (0, 0, 255), -1)
+                    csv_writer.writerow([frame_idx, track_id, f"{sx:.4f}", f"{sy:.4f}"])
+
+                    trajectory_smooth.append((sx, sy))
+
+                    mx, my = map_to_static_window(sx, sy,
+                                      r_width=r_width, r_height=r_height,
+                                      img_w = MAP_W, img_h = MAP_H,  
+                                      margin=50)
+                    
+                    if 0 <= mx < MAP_W and 0 <= my < MAP_H:
+                        cv2.circle(map_img, (mx, my), 2, (0, 0, 255), -1)
 
         cv2.putText(frame, f"Frame: {frame_idx}", (10, 25),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -167,50 +198,50 @@ if __name__ == "__main__":
     Script used to run the entire pipeline.
     """
 
-    RE_CALIBRATE = True
+    RE_CALIBRATE = False
 
     TEST_CONFIGS = [
         {
-            "id": "yolo_two_1",
+            "id": "yolo_demo_1",
             "ext": "mov",
-            "width": 7.9,
+            "width": 6.25,
             "height": 1.0,
         },
         {
-            "id": "yolo_two_2",
+            "id": "yolo_demo_2",
             "ext": "mov",
-            "width": 1.0,
-            "height": 4.0,
+            "width": 1.25,
+            "height": 3.5,
         },
     ]
 
     # Run the pipeline for each test file.
-    for config in TEST_CONFIGS:
-        cam_id = config["id"]
-        extension = config["ext"]
+    # for config in TEST_CONFIGS:
+    #     cam_id = config["id"]
+    #     extension = config["ext"]
 
-        rw = config.get("width", 1.0)
-        rh = config.get("height", 1.0)
+    #     rw = config.get("width", 1.0)
+    #     rh = config.get("height", 1.0)
 
-        video_path = f'data/videos/{cam_id}.{extension}'
-        h_inv_path = f'data/calibration/H_{cam_id}.npy'
+    #     video_path = f'data/videos/{cam_id}.{extension}'
+    #     h_inv_path = f'data/calibration/H_{cam_id}.npy'
         
-        # Output files based on the configuration ID
+    #     # Output files based on the configuration ID
 
-        csv_out = f"output/trajectory_run_{cam_id}.csv"
-        plot_out = f"output/trajectory_plot_{cam_id}.png"
+    #     csv_out = f"output/trajectory_run_{cam_id}.csv"
+    #     plot_out = f"output/trajectory_plot_{cam_id}.png"
         
-        print(f"\n--- Running Camera: {cam_id} ---")
+    #     print(f"\n--- Running Camera: {cam_id} ---")
         
-        process_camera_yolo(
-            cam_id, 
-            video_path, 
-            h_inv_path, 
-            csv_out,
-            plot_out,
-            r_width=rw,
-            r_height=rh,
-        )
+    #     process_camera_yolo(
+    #         cam_id, 
+    #         video_path, 
+    #         h_inv_path, 
+    #         csv_out,
+    #         plot_out,
+    #         r_width=rw,
+    #         r_height=rh,
+    #     )
 
     print("\n--- All runs complete ---")
 

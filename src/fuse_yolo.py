@@ -9,8 +9,6 @@ def load_trajectory(csv_path, bounds):
     if not os.path.exists(csv_path):
         print(f"[ERROR] File not found: {csv_path}")
         return np.array([]), np.array([])
-    
-    min_x, min_y, max_x, max_y = bounds
 
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
@@ -24,9 +22,8 @@ def load_trajectory(csv_path, bounds):
                     x_val = float(x_str)
                     y_val = float(y_str)
 
-                    if min_x <= x_val <= max_x and min_y <= y_val <= max_y:
-                        xs.append(x_val)
-                        ys.append(y_val)
+                    xs.append(x_val)
+                    ys.append(y_val)
 
             except ValueError:
                 continue
@@ -59,7 +56,7 @@ def create_global_plot(csv1_path, csv2_path, off_x, off_y, output_png, bounds1, 
         plt.scatter(c1_x, c1_y, c='blue', s=5, alpha=0.6, label='Cam 1 (Anchor)')
 
     if len(c2_x) > 0:
-        plt.scatter(c2_x_global, c2_y_global, c='red', s=5, alpha=0.6, label='Cam 2 (Shifted)')
+        plt.scatter(c2_x_global, c2_y_global, c='blue', s=5, alpha=0.6, label='Cam 2 (Shifted)')
 
     plt.title(f"Global Trajectory View\n(Cam 2 Offset: x={off_x:.2f}, y={off_y:.2f})")
     plt.xlabel("Global X (meters)")

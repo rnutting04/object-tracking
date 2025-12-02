@@ -2,42 +2,45 @@
 import cv2
 import numpy as np
 
-clicked_pts = []  # to store image points
+# Gllobal Variables
+
+clicked_pts = []
 frame_copy = None
-WINDOW_NAME = "Calibrate 2D"
 
 def mouse_callback(event, x, y, flags, param):
     """
-    Mouse callback for the calibration process
+    Mouse callback to record points clicked and draw them on the frame.
     """
     global clicked_pts, frame_copy
+
     if event == cv2.EVENT_LBUTTONDOWN:
         if len(clicked_pts) < 4:
             clicked_pts.append([x, y])
             print(f"Clicked: {x}, {y}")
+
             if frame_copy is not None:
                 cv2.circle(frame_copy, (x, y), 5, (0, 0, 255), -1)
 
 def calibrate_now(video_path, output_path, real_width = 1.0, real_height = 1.0):
     """
-    Calibrates the camera using the mouse callback to select the four corners of the floor
+    Calibrates the camera by creating a homography matrix that represents the virtual floor.
     """
     global clicked_pts, frame_copy
 
-    clicked_pts = []  # to store image points
+    clicked_pts = []
 
-    # world coordinates of the four floor markers (meters, for example)
-    # order: P0 -> P1 -> P2 -> P3 in a rectangle order
+    # World Coordinates of the four floor markers
+    # Order: Bottom Left -> Bottom Right -> Top Right -> Top Left
     world_pts = np.array([
-        [0.0, 0.0],   # bottom-left
-        [real_width, 0.0],   # bottom-right
-        [real_width, real_height],   # top-right
-        [0.0, real_height],   # top-left
+        [0.0, 0.0],
+        [real_width, 0.0],
+        [real_width, real_height],
+        [0.0, real_height],
     ], dtype=np.float32)
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        raise RuntimeError("Could not open video: {video_path}")
+        raise FileNotFoundError(f"Could not open video: {video_path}")
     
     ret, frame = cap.read()
     cap.release()
@@ -56,6 +59,7 @@ def calibrate_now(video_path, output_path, real_width = 1.0, real_height = 1.0):
 
     while True:
         cv2.imshow(window_name, frame_copy)
+
         key = cv2.waitKey(1)
 
         if key == ord('q'):
@@ -72,10 +76,10 @@ def calibrate_now(video_path, output_path, real_width = 1.0, real_height = 1.0):
 
     cv2.destroyAllWindows()
 
+    # Compute homography
     image_pts = np.array(clicked_pts, dtype=np.float32)
-
-    # H: world -> image
     H, _ = cv2.findHomography(world_pts, image_pts, method=0)
+    
     if H is None:
         raise RuntimeError("findHomography failed")
 
@@ -89,7 +93,7 @@ if __name__ == "__main__":
     Stand alone script to run the calibrate function
     """
 
-    VIDEO_PATH = "data/videos/test_cam1.mov"   # change if needed
-    H_INV_OUT = "data/calibration/H_test_cam1.npy"
+    VIDEO_PATH = "data/videos/yolo_demo_2.mov"
+    H_INV_OUT = "data/calibration/H_yolo_demo_2.npy"
 
-    calibrate_now(VIDEO_PATH, H_INV_OUT)
+    calibrate_now(VIDEO_PATH, H_INV_OUT, real_width=1.25, real_height=3.5)

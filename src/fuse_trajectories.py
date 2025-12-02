@@ -1,9 +1,14 @@
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 def load_csv(path):
     """Return dict: frame -> {X, Y, Xs, Ys, inliers}"""
+
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"File not found: {path}")
+
     data = {}
     with open(path, "r") as f:
         reader = csv.DictReader(f)
@@ -16,6 +21,7 @@ def load_csv(path):
                 "Ys": float(row["Ys"]),
                 "inliers": int(row["inliers"]),
             }
+
     return data
 
 def calculate_offset(cam1, cam2):
@@ -24,7 +30,7 @@ def calculate_offset(cam1, cam2):
     based on the average difference of overlapping frames.
     """
 
-    # Find frames present in both datasets
+    # Find overlapping frames
     common_frames = set(cam1.keys()) & set(cam2.keys())
     
     if not common_frames:
@@ -37,7 +43,6 @@ def calculate_offset(cam1, cam2):
     print(f"Found {len(common_frames)} overlapping frames for alignment.")
 
     for f in common_frames:
-        # We compare the SMOOTHED coordinates (Xs, Ys)
         x1 = cam1[f]["Xs"]
         y1 = cam1[f]["Ys"]
         
@@ -48,7 +53,7 @@ def calculate_offset(cam1, cam2):
         diff_x.append(x1 - x2)
         diff_y.append(y1 - y2)
 
-    # The offset is the average difference
+    # The offset is the average distance
     offset_x = np.mean(diff_x)
     offset_y = np.mean(diff_y)
 
@@ -56,17 +61,15 @@ def calculate_offset(cam1, cam2):
 
 def fuse(cam1, cam2, out_csv, plot_png, cam1_offset = (0, 0), cam2_offset = (0, 0)):
     """
-    Fuses two trajectories together, using the offset calculated by calculate_offset()
+    Fuses two trajectories together, using offset and inlier weighting.
     """
 
     # Collect all frames across both cameras
     all_frames = sorted(set(cam1.keys()) | set(cam2.keys()))
-
     fused = []
 
     for frame in all_frames:
         row = {"frame": frame}
-
         c1 = cam1.get(frame)
         c2 = cam2.get(frame)
 
@@ -92,21 +95,21 @@ def fuse(cam1, cam2, out_csv, plot_png, cam1_offset = (0, 0), cam2_offset = (0, 
             row["inliers"] = c2["inliers"]
 
         else:
-            # BOTH cams have data → fuse using inlier weighting
-            n1 = c1["inliers"]
-            n2 = c2["inliers"]
+            # BOTH cams have data → Fuse using inlier weighting
+            w1 = c1["inliers"]
+            w2 = c2["inliers"]
 
             # prevent division by zero
-            if n1 + n2 == 0:
+            if w1 + w2 == 0:
                 continue
 
-            Xf = (c1_X_global * n1 + c2_X_global * n2) / (n1 + n2)
-            Yf = (c1_Y_global * n1 + c2_Y_global * n2) / (n1 + n2)
+            Xf = (c1_X_global * w1 + c2_X_global * w2) / (w1 + w2)
+            Yf = (c1_Y_global * w1 + c2_Y_global * w2) / (w1 + w2)
 
             row["X"] = Xf
             row["Y"] = Yf
             row["source"] = "fused"
-            row["inliers"] = n1 + n2
+            row["inliers"] = w1 + w2
 
         fused.append(row)
 
@@ -132,7 +135,6 @@ def fuse(cam1, cam2, out_csv, plot_png, cam1_offset = (0, 0), cam2_offset = (0, 
     plt.tight_layout()
     plt.savefig(plot_png, dpi=200)
     print(f"Saved fused plot to {plot_png}")
-
 
 if __name__ == "__main__":
     """
